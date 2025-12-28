@@ -1,22 +1,32 @@
 console.log("🔥 EXPRESS FILE INI YANG JALAN");
-import express from "express";
+
 import dotenv from "dotenv";
+dotenv.config(); // ✅ HARUS PALING ATAS SEBELUM DB
+
+import express from "express";
 import cors from "cors";
 import pool from "./config/db.js";
 
 import emotionRoutes from "./routes/emotion.js";
 import userRoutes from "./routes/user.js";
 
-export { pool };
+/* ===== TEST DB CONNECTION (STEP 1.5) ===== */
+(async () => {
+  try {
+    const [rows] = await pool.query("SELECT 1");
+    console.log("✅ DB CONNECTED", rows);
+  } catch (err) {
+    console.error("❌ DB ERROR", err);
+  }
+})();
 
-dotenv.config();
+/* ===== APP ===== */
 const app = express();
 
 app.use(cors({ origin: "*" }));
 app.use(express.json({ limit: "200mb" }));
 app.use(express.urlencoded({ extended: true, limit: "200mb" }));
 
-// ROUTES
 app.use("/api/user", userRoutes);
 app.use("/api/predict", emotionRoutes);
 
@@ -25,6 +35,6 @@ app.get("/", (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () =>
-  console.log(`Server running on port ${PORT}`)
-);
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});

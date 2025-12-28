@@ -16,8 +16,10 @@
 
 
 -- Dumping database structure for demoippl
-CREATE DATABASE IF NOT EXISTS `demoippl` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
-USE `demoippl`;
+-- CREATE DATABASE IF NOT EXISTS `demoippl` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
+-- USE `demoippl`;
+
+use railway;
 
 -- Dumping structure for table demoippl.emosi
 CREATE TABLE IF NOT EXISTS `emosi` (
