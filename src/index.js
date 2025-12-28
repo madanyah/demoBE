@@ -44,6 +44,10 @@ app.get("/test-db", async (req, res) => {
   }
 });
 
+app.get("/test-users", async (req, res) => {
+  const [rows] = await pool.query("SELECT * FROM user LIMIT 5");
+  res.json(rows);
+});
 
 app.use("/api/user", userRoutes);
 app.use("/api/predict", emotionRoutes);
