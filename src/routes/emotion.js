@@ -44,12 +44,15 @@ router.post("/predict", async (req, res) => {
     const form = new FormData();
     form.append("file", fs.createReadStream(tmpPath));
 
-    const mlRes = await axios.post(
-      "http://127.0.0.1:8000/predict",
+        const mlRes = await axios.post(
+      `${process.env.ML_BASE_URL}/predict`,
       form,
-      { headers: form.getHeaders(), timeout: 60000 }
+      {
+        headers: form.getHeaders(),
+        timeout: 120000 // model berat, kasih napas
+      }
     );
-
+    
     const rawEmotion = mlRes.data.emotion;
     const confidence = mlRes.data.confidence;
 
