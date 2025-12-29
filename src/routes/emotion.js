@@ -52,7 +52,7 @@ router.post("/predict", async (req, res) => {
         timeout: 120000 // model berat, kasih napas
       }
     );
-    
+
     const rawEmotion = mlRes.data.emotion;
     const confidence = mlRes.data.confidence;
 
@@ -60,6 +60,10 @@ router.post("/predict", async (req, res) => {
     if (!emotion) {
       return res.status(500).json({ error: "Invalid emotion from ML" });
     }
+
+    console.log("🧪 DB TEST BEFORE INSERT");
+    await pool.query("SELECT 1");
+    console.log("✅ DB OK, INSERTING...");
 
     /* =========================
        3. INSERT DB
