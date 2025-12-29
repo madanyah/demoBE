@@ -60,6 +60,8 @@ router.post("/predict", async (req, res) => {
       }
     );
 
+    console.log("✅ ML Response:", mlRes.data);
+
     const { emotion: rawEmotion, confidence } = mlRes.data;
 
     const emotion = EMOTION_DB_MAP[rawEmotion];
@@ -85,9 +87,16 @@ router.post("/predict", async (req, res) => {
 
   } catch (err) {
     console.error("❌ Predict Error:", err.message);
+    if (err.response) {
+      console.error("❌ ML Service Response:", err.response.status, err.response.data);
+    }
+    if (err.code) {
+      console.error("❌ Error Code:", err.code);
+    }
 
     return res.status(500).json({
       error: "Prediction failed",
+      details: err.message
     });
 
   } finally {
