@@ -35,7 +35,7 @@ router.post("/predict", async (req, res) => {
        1. BASE64 → FILE (WEBM)
     ========================= */
     const buffer = Buffer.from(audio_base64, "base64");
-    tmpPath = path.join(__dirname, `audio_${Date.now()}.webm`);
+    tmpPath = path.join(__dirname, `audio_${Date.now()}.wav`);
     fs.writeFileSync(tmpPath, buffer);
 
     /* =========================
