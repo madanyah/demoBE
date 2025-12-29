@@ -4,69 +4,88 @@ import axios from "axios";
 import fs from "fs";
 import path from "path";
 import FormData from "form-data";
+import ffmpeg from "fluent-ffmpeg";
+import ffmpegPath from "ffmpeg-static";
 import { fileURLToPath } from "url";
+
+ffmpeg.setFfmpegPath(ffmpegPath);
 
 const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /* =========================
-   EMOTION MAP → DB ENUM
+   MAP EMOSI ML → DB ENUM
 ========================= */
 const EMOTION_DB_MAP = {
   hap: "happy",
   sad: "sad",
   neu: "neutral",
-  ang: "angry"
+  ang: "angry",
 };
 
 router.post("/predict", async (req, res) => {
   console.log("🔥 EXPRESS /api/predict HIT");
 
   const { id_user, audio_base64 } = req.body;
+
   if (!id_user || !audio_base64) {
-    return res.status(400).json({ error: "Missing id_user or audio_base64" });
+    return res.status(400).json({
+      error: "Missing id_user or audio_base64",
+    });
   }
 
-  let tmpPath;
+  let webmPath;
+  let wavPath;
 
   try {
     /* =========================
-       1. BASE64 → FILE (WEBM)
+       1. BASE64 → WEBM
     ========================= */
     const buffer = Buffer.from(audio_base64, "base64");
-    tmpPath = path.join(__dirname, `audio_${Date.now()}.wav`);
-    fs.writeFileSync(tmpPath, buffer);
+    webmPath = path.join(__dirname, `audio_${Date.now()}.webm`);
+    wavPath = webmPath.replace(".webm", ".wav");
+
+    fs.writeFileSync(webmPath, buffer);
 
     /* =========================
-       2. SEND TO ML
+       2. WEBM → WAV (PCM)
+    ========================= */
+    await new Promise((resolve, reject) => {
+      ffmpeg(webmPath)
+        .audioChannels(1)
+        .audioFrequency(16000)
+        .audioCodec("pcm_s16le")
+        .format("wav")
+        .on("end", resolve)
+        .on("error", reject)
+        .save(wavPath);
+    });
+
+    /* =========================
+       3. SEND WAV → ML
     ========================= */
     const form = new FormData();
-    form.append("file", fs.createReadStream(tmpPath));
+    form.append("file", fs.createReadStream(wavPath));
 
-        const mlRes = await axios.post(
+    const mlRes = await axios.post(
       `${process.env.ML_BASE_URL}/predict`,
       form,
       {
         headers: form.getHeaders(),
-        timeout: 120000 // model berat, kasih napas
+        timeout: 120000, // model berat
       }
     );
 
-    const rawEmotion = mlRes.data.emotion;
-    const confidence = mlRes.data.confidence;
-
+    const { emotion: rawEmotion, confidence } = mlRes.data;
     const emotion = EMOTION_DB_MAP[rawEmotion];
+
     if (!emotion) {
-      return res.status(500).json({ error: "Invalid emotion from ML" });
+      throw new Error(`Invalid emotion from ML: ${rawEmotion}`);
     }
 
-    console.log("🧪 DB TEST BEFORE INSERT");
-    await pool.query("SELECT 1");
-    console.log("✅ DB OK, INSERTING...");
-
     /* =========================
-       3. INSERT DB
+       4. INSERT TO DB
     ========================= */
     await pool.query(
       `INSERT INTO emosi (id_user, hasil_emosi, confidence)
@@ -74,13 +93,19 @@ router.post("/predict", async (req, res) => {
       [id_user, emotion, confidence]
     );
 
-    return res.json({ emotion, confidence });
+    return res.json({
+      emotion,
+      confidence,
+    });
 
   } catch (err) {
     console.error("❌ Predict Error:", err.message);
-    return res.status(500).json({ error: "Prediction failed" });
+    return res.status(500).json({
+      error: "Prediction failed",
+    });
   } finally {
-    if (tmpPath && fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
+    if (webmPath && fs.existsSync(webmPath)) fs.unlinkSync(webmPath);
+    if (wavPath && fs.existsSync(wavPath)) fs.unlinkSync(wavPath);
   }
 });
 
