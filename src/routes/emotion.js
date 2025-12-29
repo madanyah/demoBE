@@ -34,7 +34,7 @@ router.post("/predict", async (req, res) => {
           Authorization: `Bearer ${process.env.HF_API_TOKEN}`,
           "Content-Type": "audio/wav",
         },
-        timeout: 60000,
+        timeout: 130000,
       }
     );
 
