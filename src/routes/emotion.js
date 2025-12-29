@@ -1,23 +1,17 @@
 import express from "express";
 import pool from "../config/db.js";
 import axios from "axios";
-import fs from "fs";
-import path from "path";
-import FormData from "form-data";
-import { fileURLToPath } from "url";
 
 const router = express.Router();
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 /* =========================
    EMOTION MAP → DB ENUM
 ========================= */
 const EMOTION_DB_MAP = {
-  hap: "happy",
+  happy: "happy",
   sad: "sad",
-  neu: "neutral",
-  ang: "angry"
+  neutral: "neutral",
+  angry: "angry"
 };
 
 router.post("/predict", async (req, res) => {
@@ -28,45 +22,32 @@ router.post("/predict", async (req, res) => {
     return res.status(400).json({ error: "Missing id_user or audio_base64" });
   }
 
-  let tmpPath;
-
   try {
     /* =========================
-       1. BASE64 → FILE (WEBM)
+       1. SEND AUDIO TO HF
     ========================= */
-    const buffer = Buffer.from(audio_base64, "base64");
-    tmpPath = path.join(__dirname, `audio_${Date.now()}.wav`);
-    fs.writeFileSync(tmpPath, buffer);
-
-    /* =========================
-       2. SEND TO ML
-    ========================= */
-    const form = new FormData();
-    form.append("file", fs.createReadStream(tmpPath));
-
-        const mlRes = await axios.post(
-      `${process.env.ML_BASE_URL}/predict`,
-      form,
+    const hfRes = await axios.post(
+      `https://api-inference.huggingface.co/models/${process.env.HF_MODEL}`,
+      Buffer.from(audio_base64, "base64"),
       {
-        headers: form.getHeaders(),
-        timeout: 120000 // model berat, kasih napas
+        headers: {
+          Authorization: `Bearer ${process.env.HF_API_TOKEN}`,
+          "Content-Type": "audio/wav",
+        },
+        timeout: 60000,
       }
     );
 
-    const rawEmotion = mlRes.data.emotion;
-    const confidence = mlRes.data.confidence;
+    const top = hfRes.data[0];
+    const emotion = EMOTION_DB_MAP[top.label];
+    const confidence = top.score;
 
-    const emotion = EMOTION_DB_MAP[rawEmotion];
     if (!emotion) {
       return res.status(500).json({ error: "Invalid emotion from ML" });
     }
 
-    console.log("🧪 DB TEST BEFORE INSERT");
-    await pool.query("SELECT 1");
-    console.log("✅ DB OK, INSERTING...");
-
     /* =========================
-       3. INSERT DB
+       2. INSERT DB
     ========================= */
     await pool.query(
       `INSERT INTO emosi (id_user, hasil_emosi, confidence)
@@ -77,10 +58,8 @@ router.post("/predict", async (req, res) => {
     return res.json({ emotion, confidence });
 
   } catch (err) {
-    console.error("❌ Predict Error:", err.message);
+    console.error("❌ Predict Error:", err.response?.data || err.message);
     return res.status(500).json({ error: "Prediction failed" });
-  } finally {
-    if (tmpPath && fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
   }
 });
 
