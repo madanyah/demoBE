@@ -66,14 +66,24 @@ router.post("/predict", async (req, res) => {
        3. SEND WAV → ML
     ========================= */
     const form = new FormData();
-    form.append("file", fs.createReadStream(wavPath));
+
+    form.append(
+      "file",
+      fs.createReadStream(tmpPath),
+      {
+        filename: "audio.wav",
+        contentType: "audio/wav",
+      }
+    );
 
     const mlRes = await axios.post(
       `${process.env.ML_BASE_URL}/predict`,
       form,
       {
-        headers: form.getHeaders(),
-        timeout: 120000, // model berat
+        headers: {
+          ...form.getHeaders(),
+        },
+        timeout: 120000,
       }
     );
 
